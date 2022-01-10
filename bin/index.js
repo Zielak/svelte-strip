@@ -10,6 +10,7 @@ const minimatch = require("minimatch");
 const { typescript } = sveltePreprocess;
 
 async function strip(filename, target, maps) {
+  console.log(`strip( ${filename}, ${target}, ${maps} )`);
   const { code, map } = await preprocess(
     (await fs.promises.readFile(filename)).toString(),
     [typescript()],
@@ -29,6 +30,7 @@ async function strip(filename, target, maps) {
 }
 
 async function makeDirectoryStructure(filename) {
+  console.log(`makeDirectoryStructure( ${filename} )`);
   await fs.promises.mkdir(dirname(filename), { recursive: true });
 }
 
@@ -77,7 +79,14 @@ yargs(hideBin(process.argv))
       const stats = await fs.promises.stat(input);
 
       if (stats.isDirectory()) {
-        const files = await glob(resolve(input, "**", globPattern));
+        let files = await glob(resolve(input, "**", globPattern), {});
+
+        if (sep === "\\") {
+          files = files.map((path) => path.replaceAll("/", sep));
+        }
+
+        console.log("files:", files);
+
         const inpath = resolve(input);
         for (const file of files) {
           if (
@@ -85,6 +94,7 @@ yargs(hideBin(process.argv))
               minimatch(file, pattern, { matchBase: false })
             )
           ) {
+            console.log("ignoring");
             continue;
           }
 
@@ -95,8 +105,16 @@ yargs(hideBin(process.argv))
             slice.startsWith(sep) ? slice.slice(sep.length) : slice
           );
 
+          console.debug("\tsep:    ", sep);
+          console.debug("\tinpath: ", inpath);
+          console.debug("\tinfile: ", infile);
+          console.debug("\tslice:  ", slice);
+          console.debug("\toutfile:", outfile);
+
           await makeDirectoryStructure(outfile);
           await strip(infile, outfile, argv.maps);
+
+          console.log("============");
         }
       } else if (stats.isFile() || stats.isFIFO()) {
         await makeDirectoryStructure(output);
